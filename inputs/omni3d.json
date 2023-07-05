@@ -1,0 +1,23 @@
+{
+    "data_root": "data/omni3d/",
+    "samples": [
+        {
+            "name": "house_001",
+            "anchor_vid": 94,
+            "target_vids": [15, 25, 99],
+            "init_poses": {}
+        },
+        {
+            "name": "ornaments_001",
+            "anchor_vid": 63,
+            "target_vids": [10, 82, 1],
+            "init_poses": {}
+        },
+        {
+            "name": "dinosaur_002",
+            "anchor_vid": 11,
+            "target_vids": [1, 77, 65],
+            "init_poses": {}
+        }
+    ]
+}

@@ -1,2 +1,11 @@
 **/.DS_Store
-.DS_Store
+**/.ipynb_checkpoints
+**/__pycache__
+*.egg-info
+*.zip
+*.ckpt
+*.mp4
+*.pth
+.vscode/
+ckpts/*
+logs/

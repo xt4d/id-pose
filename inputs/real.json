@@ -1,0 +1,59 @@
+{
+    "data_root": "data/real/",
+    "samples": [
+        {
+            "name": "toyduck_photo",
+            "anchor_vid": 2,
+            "target_vids": [4],
+            "init_poses": {}
+        },
+        {
+            "name": "chair_photo",
+            "anchor_vid": 4,
+            "target_vids": [0],
+            "init_poses": {}
+        },
+        {
+            "name": "foosball_photo",
+            "anchor_vid": 2,
+            "target_vids": [3],
+            "init_poses": {}
+        },
+        {
+            "name": "toyduck_photo",
+            "anchor_vid": 0,
+            "target_vids": [1, 5],
+            "init_poses": {}
+        },
+        {
+            "name": "chair_photo",
+            "anchor_vid": 2,
+            "target_vids": [0, 4],
+            "init_poses": {}
+        },
+        {
+            "name": "foosball_photo",
+            "anchor_vid": 0,
+            "target_vids": [4, 1],
+            "init_poses": {}
+        },
+        {
+            "name": "toyduck_photo",
+            "anchor_vid": 4,
+            "target_vids": [0, 3, 5],
+            "init_poses": {}
+        },
+        {
+            "name": "chair_photo",
+            "anchor_vid": 0,
+            "target_vids": [1, 2, 3],
+            "init_poses": {}
+        },
+        {
+            "name": "foosball_photo",
+            "anchor_vid": 3,
+            "target_vids": [0, 1, 2],
+            "init_poses": {}
+        }
+    ]
+}
