@@ -7,7 +7,6 @@
 	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 	<title>ID-Pose</title>
-    <meta http-equiv = "refresh" content = "0; url = https://xt4d.github.io/id-pose-web/" />
 </head>
 <body>
 	<section>
@@ -67,13 +66,71 @@
 		</div>
 	</section>
 
+	<section class="hero teaser is-light is-small">
+		<div class="column has-text-centered">
+			<video autoplay="" muted="" loop="" playsinline="" height="100%">
+				<source src="https://xt4d.github.io/id-pose-web/res/toyduck.mp4" type="video/mp4">
+			</video>
+		</div>
+	</section>
+	<section class="section">
+		<div class="container is-max-desktop">
+			<div class="is-centered has-text-centered">
+				<h2 class="title is-3">Abstract</h2>
+				<h2 class="content has-text-justified">
+					Given sparse views of an object, estimating their camera poses is a long-standing and intractable
+					problem. We harness the pre-trained diffusion model of novel views conditioned on viewpoints
+					(Zero-1-to-3). We present ID-Pose which inverses the denoising diffusion process to estimate the
+					relative pose given two input images. ID-Pose adds a noise on one image, and predicts the noise
+					conditioned on the other image and a decision variable for the pose. The prediction error is used as
+					the objective to find the optimal pose with the gradient descent method. ID-Pose can handle more
+					than two images and estimate each of the poses with multiple image pairs from triangular
+					relationships. ID-Pose requires no training and generalizes to real-world images. We conduct
+					experiments using high-quality real-scanned 3D objects, where ID-Pose significantly outperforms
+					state-of-the-art methods.
+				</h2>
+				<img src="https://xt4d.github.io/id-pose-web/res/teaser.png" width="100%" />
+			</div>
+		</div>
+	</section>
+
     <section class="section">
 		<div class="container is-max-desktop">
 			<div class="is-centered has-text-centered">
-                <h2 class="title is-3">👉 Go to the new <a href="https://xt4d.github.io/id-pose-web">Project Page</a>.</h2>
-            </div>
-        </div>
-    </section>
+				<h2 class="title is-3">👉 Open <a href="https://xt4d.github.io/id-pose-web#viewer" target="_blank">Interactive Demo</a>.</h2>
+			</div>
+		</div>
+	</section>
+
+	<section class="section" id="BibTeX">
+		<div class="container is-max-desktop content">
+			<h2 class="title">BibTeX</h2>
+<pre><code>@article{cheng2023id, 
+   title={ID-Pose: Sparse-view Camera Pose Estimation by Inverting Diffusion Models}, 
+   author={Cheng, Weihao and Cao, Yan-Pei and Shan, Ying}, 
+   journal={arXiv preprint arXiv:2306.17140}, 
+   year={2023}
+}
+</code></pre>
+		</div>
+	</section>
+
+	<footer class="footer">
+		<div class="container">
+			<div class="container" align="center">
+				<div class="column is-centered">
+					<div class="content">
+						<p>
+							ID-Pose Webpage v0.1
+						</p>
+						<p>
+						The template is borrowed from <a href="https://github.com/nerfies/nerfies.github.io" target="_blank">nerfies</a>.
+						</p>
+					</div>
+				</div>
+			</div>
+		</div>
+	</footer>
 
 </body>
 </html>
