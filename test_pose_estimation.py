@@ -32,17 +32,17 @@ if __name__ == '__main__':
     parser.add_argument('--optm_iters', type=int, default=600)
     parser.add_argument('--gen_image', action='store_true')
     parser.add_argument('--bkg_threshold', type=float, default=0.9)
+    parser.add_argument('--ckpt_path', type=str, default='ckpts/105000.ckpt')
 
     args = parser.parse_args()
     print(args)
 
     device = 'cuda:0'
     config_path = 'configs/sd-objaverse-finetune-c_concat-256.yaml'
-    ckpt_path = 'ckpts/105000.ckpt'
 
     config = OmegaConf.load(config_path)
 
-    model = load_model_from_config(config, ckpt_path, device=device)
+    model = load_model_from_config(config, args.ckpt_path, device=device)
     model.eval()
 
     width = 256
