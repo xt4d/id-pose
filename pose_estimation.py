@@ -7,6 +7,9 @@ from datetime import datetime
 from ldm.util import load_and_preprocess, instantiate_from_config
 from pose_funcs import probe_pose, find_optimal_poses, get_inv_pose, add_pose, pairwise_loss
 
+from oee.utils.elev_est_api import elev_est_api, ElevEstHelper
+from sampling import sample_images
+
 
 def load_image(img_path, width, height, mask_path=None, device='cpu', preprocessor=None, threshold=0.9):
 
@@ -63,7 +66,9 @@ def estimate_poses(
         probe_ts_range=[0.02, 0.98], ts_range=[0.02, 0.98], 
         probe_bsz=16, 
         adjust_iters=10, optm_iters=600, 
-        noise=None
+        noise=None,
+        est_elev=False,
+        matcher_ckpt_path=None
     ):
 
     num = len(images)
@@ -74,40 +79,69 @@ def estimate_poses(
     cands = {}
     losses = {}
 
-    pairwise_init_poses = {}
+    elevs = {i: None for i in range(num)}
+    elev_ranges = {i: None for i in range(num)}
+
+    init_poses = {i: None for i in range(num)}
+    pairwise_init_poses = {i: None for i in range(num)}
 
     print('Initialization: Probe', datetime.now())
+
+    if est_elev:
+        matcher = ElevEstHelper.get_feature_matcher(matcher_ckpt_path, model.device)
+        for i in range(num):
+            simgs = sample_surrounding_images(model, images[i])
+            elev = elev_est_api(matcher, simgs, min_elev=20, max_elev=160)
+            elevs[i] = elev
+        
+        for i in range(num):
+            if elevs[i] is not None:
+                elevs[i] = np.deg2rad(elevs[i])
+
+        for i in range(1, num):
+
+            if elevs[i] is not None and elevs[0] is not None:
+                elev_ranges[i] = np.array([ elevs[i] - elevs[0] ])
+            elif elevs[i] is not None:
+                elev_ranges[i] = -make_elev_probe_range(elevs[i])
+            elif elevs[0] is not None:
+                elev_ranges[i] = make_elev_probe_range(elevs[0])
+
+    images = [ img.permute(0, 2, 3, 1) for img in images ]
 
     for i in range(1, num):
 
         print('PAIR', 0, i, datetime.now())
 
-        all_cands = probe_pose(model, images[0], images[i], probe_ts_range, probe_bsz, noise=noise)
+        all_cands = probe_pose(model, images[0], images[i], probe_ts_range, probe_bsz, theta_range=elev_ranges[i], noise=noise)
 
         print('Adjust candidates', len(all_cands), datetime.now())
 
-        adjusted_cands = []
-        '''only adjust the first half'''
-        for cand in all_cands[:len(all_cands)//2]:
+        adjusted_cands = all_cands[:5]
+        if adjust_iters > 0:
+            adjusted_cands = []
+            '''only adjust the first half'''
+            for cand in all_cands[:len(all_cands)//2]:
             
-            out_poses, _, _ = find_optimal_poses(
-                model, [images[0], images[i]], 
-                learning_rate*10, n_iter=adjust_iters, 
-                init_poses={1: cand[1]}, 
-                ts_range=ts_range,
-                print_n=100,
-                avg_last_n=1
-            )
+                out_poses, _, _ = find_optimal_poses(
+                    model, [images[0], images[i]], 
+                    learning_rate*10, n_iter=adjust_iters, 
+                    init_poses={1: cand[1]}, 
+                    ts_range=ts_range,
+                    print_n=100,
+                    avg_last_n=1
+                )
 
-            loss = pairwise_loss(out_poses[0], model, images[0], images[i], probe_ts_range, probe_bsz, noise=noise)
-            adjusted_cands.append((loss, out_poses[0]))
+                loss = pairwise_loss(out_poses[0], model, images[0], images[i], probe_ts_range, probe_bsz, noise=noise)
+                adjusted_cands.append((loss, out_poses[0], cand[0], cand[1]))
 
-        adjusted_cands = sorted(adjusted_cands)[:5]
+            adjusted_cands = sorted(adjusted_cands)[:5]
+
         for cand in adjusted_cands:
             print(cand)
 
-        cands[i] = adjusted_cands
-        losses[i] = [loss if (init_type == 'pairwise') else 0.0 for loss, _ in adjusted_cands]
+        cands[i] = [ cand[:2] for cand in adjusted_cands ]
+        losses[i] = [loss if (init_type == 'pairwise') else 0.0 for loss, _ in cands[i]]
 
         pairwise_init_poses[i] = min(cands[i])[1]
 
@@ -145,8 +179,6 @@ def estimate_poses(
                 
                 for v in range(0, len(cands[j])):
                     losses[j][v] += min(min(jloss[v]), cands[j][v][0]*3)
-
-    init_poses = {}
 
     for i in range(1, num):
 
@@ -188,4 +220,30 @@ def estimate_poses(
 
     print('Done', datetime.now())
 
-    return out_poses, [ init_poses[i] for i in range(1, num) ], [ pairwise_init_poses[i] for i in range(1, num) ]
+    aux_data = {
+        'tri_init_sph': init_poses,
+        'pw_init_sph': pairwise_init_poses,
+        'elev': elevs
+    }
+
+    return out_poses, aux_data
+
+
+def make_elev_probe_range(elev, interval=np.pi/4):
+
+    up_range = np.arange(elev, 0, -interval)
+    down_range = np.arange(elev+interval, np.pi, interval)
+    probe_range = np.concatenate([up_range, down_range])
+    probe_range -= elev
+
+    return probe_range
+
+
+def sample_surrounding_images(model, image):
+
+    s0 = sample_images(model, image, float(np.deg2rad(-10)), 0, 0, n_samples=1)
+    s1 = sample_images(model, image, float(np.deg2rad(+10)), 0, 0, n_samples=1)
+    s2 = sample_images(model, image, 0, float(np.deg2rad(-10)), 0, n_samples=1)
+    s3 = sample_images(model, image, 0, float(np.deg2rad(+10)), 0, n_samples=1)
+
+    return s0 + s1 + s2 + s3

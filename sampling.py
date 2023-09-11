@@ -71,5 +71,5 @@ def sample_images(
     output_ims = []
     for x_sample in x_samples_ddim:
         x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-        output_ims.append(Image.fromarray(x_sample.astype(np.uint8)))
+        output_ims.append(x_sample.astype(np.uint8))
     return output_ims

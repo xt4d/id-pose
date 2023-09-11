@@ -70,20 +70,27 @@ def c2w_to_elu(c2w):
 
     w2c = np.linalg.inv(c2w)
     eye = c2w[:3, 3]
-    lookat_dir = w2c[2, :3]
+    lookat_dir = -w2c[2, :3]
     lookat = eye + lookat_dir
     up = w2c[1, :3]
 
     return eye, lookat, up
 
 
-def build_output(anchor_vid, target_vids, pred_sphs, init_sphs, pw_init_sphs, obj_root, export_xyz=False):
+def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_xyz=False):
 
     '''save pose output'''
     jdata = {
         'anchor_vid': anchor_vid,
         'obs': {}
     }
+
+    jdata['obs'][anchor_vid] = {
+        'img_path': f'{anchor_vid:03d}.png'
+    }
+
+    for key in aux_data:
+        jdata['obs'][anchor_vid][key] = aux_data[key][0]
 
     anchor_sph = None
 
@@ -93,10 +100,7 @@ def build_output(anchor_vid, target_vids, pred_sphs, init_sphs, pw_init_sphs, ob
         anchor_xyz = anchor_rt[:3, -1]
 
         anchor_sph = cartesian_to_spherical(anchor_xyz)
-        jdata['obs'][anchor_vid] = {
-            'img_path': f'{anchor_vid:03d}.png',
-            'sph': anchor_sph.tolist()
-        }
+        jdata['obs'][anchor_vid]['sph'] = anchor_sph.tolist()
 
         if export_xyz:        
             jdata['obs'][anchor_vid]['xyz'] = {
@@ -104,26 +108,21 @@ def build_output(anchor_vid, target_vids, pred_sphs, init_sphs, pw_init_sphs, ob
                 'y': anchor_xyz[1],
                 'z': anchor_xyz[2]
             }
-    else:
-        jdata['obs'][anchor_vid] = {
-            'img_path': f'{anchor_vid:03d}.png'
-        }
 
 
     for i in range(0, len(target_vids)):
         
         target_vid = target_vids[i]
 
-        pw_init_sph = np.array(pw_init_sphs[i])
-        init_sph = np.array(init_sphs[i])
         rel_sph = np.array(pred_sphs[i])
 
         opack = {
             'img_path': f'{target_vid:03d}.png',
-            'pw_init_sph': pw_init_sph.tolist(),
-            'init_sph': init_sph.tolist(),
             'rel_sph': rel_sph.tolist()
         }
+
+        for key in aux_data:
+            opack[key] = aux_data[key][i+1]
 
         if anchor_sph is not None:
 

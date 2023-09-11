@@ -51,14 +51,22 @@ def pairwise_loss(pose, model, cond_image, target_image, ts_range, probe_bsz, no
 
 
 @torch.no_grad()
-def probe_pose(model, cond_image, target_image, ts_range, probe_bsz, noise=None):
+def probe_pose(model, cond_image, target_image, ts_range, probe_bsz, theta_range=None, azimuth_range=None, radius_range=None, noise=None):
 
     eps = 1e-5
+
+    if theta_range is None:
+        theta_range = np.arange(start=-np.pi*2/3, stop=np.pi*2/3+eps, step=np.pi/3)
+    if azimuth_range is None:
+        azimuth_range = np.arange(start=0.0, stop=np.pi*2, step=np.pi/4)
+    if radius_range is None:
+        radius_range = np.arange(start=0.0, stop=0.0+eps, step=0.1)
+
     cands = []
 
-    for radius in np.arange(start=0.0, stop=0.0+eps, step=0.1):
-        for azimuth in np.arange(start=0.0, stop=np.pi*2, step=np.pi/4):
-            for theta in np.arange(start=-np.pi*2/3, stop=np.pi*2/3+eps, step=np.pi/3):
+    for radius in radius_range:
+        for azimuth in azimuth_range:
+            for theta in theta_range:
 
                 loss = pairwise_loss([theta, azimuth, radius], model, cond_image, target_image, ts_range, probe_bsz, noise=noise)
 

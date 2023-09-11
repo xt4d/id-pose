@@ -6,6 +6,7 @@ import torch
 import numpy as np
 from omegaconf import OmegaConf
 import torchvision.utils as vutils
+from PIL import Image
 
 from pose_estimation import load_model_from_config, load_image, estimate_poses
 from sampling import sample_images
@@ -33,6 +34,9 @@ if __name__ == '__main__':
     parser.add_argument('--gen_image', action='store_true')
     parser.add_argument('--bkg_threshold', type=float, default=0.9)
     parser.add_argument('--ckpt_path', type=str, default='ckpts/105000.ckpt')
+    parser.add_argument('--matcher_ckpt_path', type=str, default='ckpts/indoor_ds_new.ckpt')
+    parser.add_argument('--est_elev', action='store_true')
+    parser.add_argument('--overwrite', action='store_true')
 
     args = parser.parse_args()
     print(args)
@@ -79,7 +83,7 @@ if __name__ == '__main__':
         obj_path = os.path.join(data_root, obj_name)
 
         save_root = os.path.join('outputs', args.exp_name, name)
-        if os.path.exists(os.path.join(save_root, f'pose.json')):
+        if not args.overwrite and os.path.exists(os.path.join(save_root, f'pose.json')):
             print('Already exists:', os.path.join(save_root, f'pose.json'), flush=True)
             continue
 
@@ -98,9 +102,7 @@ if __name__ == '__main__':
             images.append(img)
             vutils.save_image((img + 1) / 2, os.path.join(save_root, f'{vid:03d}.png'))
 
-        images = [ img.permute(0, 2, 3, 1) for img in images ]
-
-        result_poses, init_poses, pw_init_poses = estimate_poses(
+        result_poses, aux_data = estimate_poses(
             model, images,
             learning_rate=args.learning_rate,
             init_type=args.init_type,
@@ -110,7 +112,9 @@ if __name__ == '__main__':
             probe_bsz=args.probe_bsz,
             adjust_iters=args.adjust_iters,
             optm_iters=args.optm_iters,
-            noise=noise
+            noise=noise,
+            est_elev=args.est_elev,
+            matcher_ckpt_path=args.matcher_ckpt_path
         )
 
         if args.gen_image:
@@ -118,11 +122,12 @@ if __name__ == '__main__':
             '''generate target images'''
             for i in range(0, len(target_vids)):
                 theta, azimuth, radius = result_poses[i][0], result_poses[i][1], result_poses[i][2]
-                output_imgs = sample_images(model, images[0].permute(0, 3, 1, 2), theta, azimuth, radius, n_samples=3)
+                output_imgs = sample_images(model, images[0], theta, azimuth, radius, n_samples=3)
                 for oi, img in enumerate(output_imgs):
-                    img.save(os.path.join(save_root, 'gen', f'{anchor_vid:03d}_{target_vids[i]:03d}_{oi}.png'))
+                    pil_img = Image.fromarray(img)
+                    pil_img.save(os.path.join(save_root, 'gen', f'{anchor_vid:03d}_{target_vids[i]:03d}_{oi}.png'))
 
-        jdata = build_output(anchor_vid, target_vids, result_poses, init_poses, pw_init_poses, obj_path)
+        jdata = build_output(anchor_vid, target_vids, result_poses, aux_data, obj_path)
 
         with open(os.path.join(save_root, f'pose.json'), 'w+') as fout:
             json.dump(jdata, fout, indent=4)

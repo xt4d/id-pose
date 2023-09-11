@@ -25,4 +25,6 @@ rich>=13.3.2
 lovely-numpy>=0.2.8
 lovely-tensors>=0.1.14
 plotly==5.13.1
-trimesh
+trimesh==3.23.5
+yacs==0.1.8
+dl_ext
