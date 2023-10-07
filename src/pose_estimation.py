@@ -4,11 +4,11 @@ from PIL import Image
 from torchvision import transforms
 from datetime import datetime
 
-from ldm.util import load_and_preprocess, instantiate_from_config
-from pose_funcs import probe_pose, find_optimal_poses, get_inv_pose, add_pose, pairwise_loss
+from .ldm.util import load_and_preprocess, instantiate_from_config
+from .pose_funcs import probe_pose, find_optimal_poses, get_inv_pose, add_pose, pairwise_loss
 
-from oee.utils.elev_est_api import elev_est_api, ElevEstHelper
-from sampling import sample_images
+from .oee.utils.elev_est_api import elev_est_api, ElevEstHelper
+from .sampling import sample_images
 
 
 def load_image(img_path, width, height, mask_path=None, device='cpu', preprocessor=None, threshold=0.9):

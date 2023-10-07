@@ -3,7 +3,7 @@ import numpy as np
 import re
 import json
 
-from utils import relative_spherical, spherical_to_cartesian, cartesian_to_spherical, elu_to_c2w
+from src.utils import relative_spherical, spherical_to_cartesian, cartesian_to_spherical, elu_to_c2w
 
 def compute_angular_error(rotation1, rotation2):
     R_rel = rotation1.T @ rotation2

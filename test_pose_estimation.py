@@ -8,9 +8,9 @@ from omegaconf import OmegaConf
 import torchvision.utils as vutils
 from PIL import Image
 
-from pose_estimation import load_model_from_config, load_image, estimate_poses
-from sampling import sample_images
-from utils import build_output
+from src.pose_estimation import load_model_from_config, load_image, estimate_poses
+from src.sampling import sample_images
+from src.utils import build_output
 
 if __name__ == '__main__':
 
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     print(args)
 
     device = 'cuda:0'
-    config_path = 'configs/sd-objaverse-finetune-c_concat-256.yaml'
+    config_path = 'src/configs/sd-objaverse-finetune-c_concat-256.yaml'
 
     config = OmegaConf.load(config_path)
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
         )
 
         if args.gen_image:
-            os.makedirs(os.path.join(save_root, 'gen'))
+            os.makedirs(os.path.join(save_root, 'gen'), exist_ok=True)
             '''generate target images'''
             for i in range(0, len(target_vids)):
                 theta, azimuth, radius = result_poses[i][0], result_poses[i][1], result_poses[i][2]

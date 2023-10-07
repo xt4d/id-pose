@@ -9,7 +9,7 @@ from einops import rearrange
 import torch
 from torch import autocast
 
-from ldm.models.diffusion.ddim import DDIMSampler
+from .ldm.models.diffusion.ddim import DDIMSampler
 
 @torch.no_grad()
 def sample_model(input_im, model, sampler, precision, h, w, ddim_steps, n_samples, scale, \

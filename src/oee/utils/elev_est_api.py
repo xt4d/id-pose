@@ -10,9 +10,9 @@ from copy import deepcopy
 
 import loguru
 import torch
-from oee.models.loftr import LoFTR, default_cfg
+from ..models.loftr import LoFTR, default_cfg
 
-from oee.utils.utils3d import rect_to_img, canonical_to_camera, calc_pose
+from .utils3d import rect_to_img, canonical_to_camera, calc_pose
 
 
 class ElevEstHelper:
