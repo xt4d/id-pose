@@ -93,10 +93,15 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
         jdata['obs'][anchor_vid][key] = aux_data[key][0]
 
     anchor_sph = None
+    anchor_rt = None
 
     if os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.npy')):
-
         anchor_rt = np.load(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.npy'))
+    elif os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.txt')):
+        anchor_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.txt'))
+
+    if anchor_rt is not None:
+
         anchor_xyz = anchor_rt[:3, -1]
 
         anchor_sph = cartesian_to_spherical(anchor_xyz)
@@ -108,7 +113,6 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
                 'y': anchor_xyz[1],
                 'z': anchor_xyz[2]
             }
-
 
     for i in range(0, len(target_vids)):
         
@@ -137,9 +141,14 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
                     'z': target_xyz[2]
                 }
 
-            if os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid:03d}.npy')):
+            target_rt = None
 
+            if os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid:03d}.npy')):
                 target_rt = np.load(os.path.join(obj_root, 'poses', f'{target_vid:03d}.npy'))
+            elif os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid:03d}.txt')):
+                target_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{target_vid:03d}.txt'))
+
+            if target_rt is not None:
 
                 if export_xyz:
                     opack['gt_xyz'] = {

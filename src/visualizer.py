@@ -3,7 +3,6 @@ import os
 from PIL import Image
 import plotly.graph_objects as go
 import numpy as np
-import trimesh
 
 
 def calc_cam_cone_pts_3d(c2w, fov_deg, zoom = 1.0):
@@ -52,7 +51,7 @@ def calc_cam_cone_pts_3d(c2w, fov_deg, zoom = 1.0):
     ys = [cam_y, corn_y1, corn_y2, corn_y3, corn_y4, corn_y5]
     zs = [cam_z, corn_z1, corn_z2, corn_z3, corn_z4, corn_z5]
 
-    return np.array([xs, ys, zs]).T, c2w[:3, :3]
+    return np.array([xs, ys, zs]).T
 
 
 class CameraVisualizer:
@@ -86,6 +85,7 @@ class CameraVisualizer:
 
         self._mesh = None
         if mesh_path is not None and os.path.exists(mesh_path):
+            import trimesh
             self._mesh = trimesh.load(mesh_path, force='mesh')
 
 
@@ -109,7 +109,7 @@ class CameraVisualizer:
 
     def update_figure(
             self, scene_bounds, 
-            base_radius=2.5, zoom_scale=1.5, fov_deg=50., 
+            base_radius=0.0, fov_deg=50., 
             mesh_z_shift=0.0, mesh_scale=1.0, 
             show_background=False, show_grid=False, show_ticklabels=False   
         ):
@@ -140,8 +140,7 @@ class CameraVisualizer:
 
             edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (3, 4), (4, 1), (0, 5)]
 
-            cone, rot = calc_cam_cone_pts_3d(pose, fov_deg)
-            radius = np.linalg.norm(pose[:3, -1])
+            cone = calc_cam_cone_pts_3d(pose, fov_deg)
 
             if self._bit_images and self._bit_images[i]:
 
@@ -151,12 +150,13 @@ class CameraVisualizer:
 
                 (H, W, C) = raw_image.shape
 
-                z = np.zeros((H, W)) + base_radius + radius * zoom_scale - 1
+                z = np.zeros((H, W)) + base_radius
                 (x, y) = np.meshgrid(np.linspace(-1.0 * self._camera_x, 1.0 * self._camera_x, W), np.linspace(1.0, -1.0, H) * H / W)
                 
                 xyz = np.concatenate([x[..., None], y[..., None], z[..., None]], axis=-1)
+
+                rot_xyz = np.matmul(xyz, pose[:3, :3].T) + pose[:3, -1]
                 
-                rot_xyz = xyz @ rot.T
                 x, y, z = rot_xyz[:, :, 0], rot_xyz[:, :, 1], rot_xyz[:, :, 2]
                 
                 fig.add_trace(go.Surface(
@@ -182,7 +182,7 @@ class CameraVisualizer:
                     name=legend, showlegend=(i == 0)))
 
             # Add label.
-            if cone[0, 2] <= base_radius / 2.0:
+            if cone[0, 2] < 0:
                 fig.add_trace(go.Scatter3d(
                     x=[cone[0, 0]], y=[cone[0, 1]], z=[cone[0, 2] - 0.05], showlegend=False,
                     mode='text', text=legend, textposition='bottom center'))
@@ -193,8 +193,6 @@ class CameraVisualizer:
 
         # look at the center of scene
         fig.update_layout(
-            # width=640,
-            # height=480,
             height=720,
             autosize=True,
             hovermode=False,
@@ -210,12 +208,12 @@ class CameraVisualizer:
                 aspectmode='manual',
                 aspectratio=dict(x=1, y=1, z=1),
                 camera=dict(
-                    eye=dict(x=1.2, y=1.2, z=1.5),
+                    eye=dict(x=1.5, y=1.5, z=1.0),
                     center=dict(x=0.0, y=0.0, z=0.0),
                     up=dict(x=0.0, y=0.0, z=1.0)),
-                xaxis_title='',
-                yaxis_title='',
-                zaxis_title='',
+                xaxis_title='x',
+                yaxis_title='y',
+                zaxis_title='z',
                 xaxis=dict(
                     range=[-scene_bounds, scene_bounds],
                     showticklabels=show_ticklabels,

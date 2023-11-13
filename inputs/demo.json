@@ -1,0 +1,11 @@
+{
+    "data_root": "data/demo/",
+    "samples": [
+        {
+            "name": "lion",
+            "anchor_vid": 0,
+            "target_vids": [1],
+            "init_poses": {}
+        }
+    ]
+}

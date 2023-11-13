@@ -22,10 +22,10 @@ if __name__ == '__main__':
     parser.add_argument('--input_json', type=str)
     parser.add_argument('--exp_name', type=str)
     parser.add_argument('--learning_rate', type=float, default=1.0)
-    parser.add_argument('--min_timestep', type=float, default=0.8)
+    parser.add_argument('--min_timestep', type=float, default=0.2)
     parser.add_argument('--max_timestep', type=float, default=0.81)
-    parser.add_argument('--probe_min_timestep', type=float, default=0.8)
-    parser.add_argument('--probe_max_timestep', type=float, default=0.81)
+    parser.add_argument('--probe_min_timestep', type=float, default=0.2)
+    parser.add_argument('--probe_max_timestep', type=float, default=0.21)
     parser.add_argument('--init_type', type=str, default='triangular', choices=['pairwise', 'triangular'])
     parser.add_argument('--optm_type', type=str, default='triangular', choices=['pairwise', 'triangular'])
     parser.add_argument('--probe_bsz', type=int, default=16)
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--bkg_threshold', type=float, default=0.9)
     parser.add_argument('--ckpt_path', type=str, default='ckpts/105000.ckpt')
     parser.add_argument('--matcher_ckpt_path', type=str, default='ckpts/indoor_ds_new.ckpt')
-    parser.add_argument('--est_elev', action='store_true')
+    parser.add_argument('--no_est_elev', action='store_true')
     parser.add_argument('--overwrite', action='store_true')
 
     args = parser.parse_args()
@@ -113,7 +113,7 @@ if __name__ == '__main__':
             adjust_iters=args.adjust_iters,
             optm_iters=args.optm_iters,
             noise=noise,
-            est_elev=args.est_elev,
+            est_elev=not args.no_est_elev,
             matcher_ckpt_path=args.matcher_ckpt_path
         )
 

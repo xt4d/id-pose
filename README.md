@@ -2,7 +2,7 @@
 
 <img src="docs/teaser.png" width="100%"/>
 
-[<a href="https://arxiv.org/abs/2306.17140" target="_blank">Paper</a>] | [<a href="https://xt4d.github.io/id-pose-web/" target="_blank">Project Page</a>] | [<a href="https://xt4d.github.io/id-pose-web/#viewer" target="_blank">Interactive Examples</a>]
+[<a href="https://arxiv.org/abs/2306.17140" target="_blank">Paper</a>] | [<a href="https://xt4d.github.io/id-pose-web/" target="_blank">Project Page</a>] | [<a href="https://xt4d.github.io/id-pose-web/viewer.html" target="_blank">Interactive Examples</a>]
 
 ## TL;DR
 - ID-Pose estimates camera poses of sparse input images (>= 2).
@@ -10,11 +10,9 @@
 - ID-Pose generalizes to in-the-wild images as leveraging diffusion models pre-trained on large-scale data. 
 
 ## News
-- [Feature] Initializing relative poses with estimated absolute elevations from input images. The estimation method and the source code are borrowed from [One-2-3-45](https://one-2-3-45.github.io/). This feature improves the metrics by about 3%-10% (tested on OmniObject3D). It also reduces the running time as elevations will not be probed. To use this feature, please download [indoor_ds_new.ckpt](https://drive.google.com/drive/folders/1xu2Pq6mZT5hmFgiYMBT9Zt8h1yO-3SIp) to `ckpts/` and run the script with ```--est_elev```:
-<pre>
-python test_pose_estimation --input_json ./inputs/omni3d.json --exp_name omni3d <b>--est_elev</b>
-</pre>
-- Releasing the evaluation data & code. Please check the [Evaluation](#evaluation) section.
+- [2023-11-12] We incoporate "absolute elevation estimation" as the default setting. We update the default values of the following parameters: ```--probe_min_timestep```, ```--probe_max_timestep```, ```--min_timestep```, ```--max_timestep```. 
+- [2023-09-11] We introduce a new feature that initializing relative poses with estimated absolute elevations from input images. The estimation method and the source code are borrowed from [One-2-3-45](https://one-2-3-45.github.io/). This feature improves the metrics by about 3%-10% (tested on OmniObject3D). It also reduces the running time as elevations will not be probed. 
+- [2023-09-11] We release the evaluation data & code. Please check the [Evaluation](#evaluation) section.
 ## Usage
 ### Installation
 Create an environment with Python 3.9 (Recommend to use [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html))
@@ -28,25 +26,19 @@ git clone https://github.com/openai/CLIP.git
 pip install -e CLIP/
 ```
 
-### Download checkpoint
-Download a checkpoint from [Zero123 weights](https://huggingface.co/cvlab/zero123-weights/tree/main) to `ckpts/`.
+### Download checkpoints
+1. Download `105000.ckpt` from [Zero123 weights](https://huggingface.co/cvlab/zero123-weights/tree/main) to `ckpts/`.
 ```
 mkdir -p ckpts/
 wget -P ckpts/ https://huggingface.co/cvlab/zero123-weights/resolve/main/105000.ckpt
 ```
-You can also try the latest Zero123-XL checkpoint trained on the [Objaverse-XL](https://objaverse.allenai.org/objaverse-xl-paper.pdf) dataset of 10M+ objects!
+2. Download `indoor_ds_new.ckpt` from [LoFTR weights](https://drive.google.com/drive/folders/1xu2Pq6mZT5hmFgiYMBT9Zt8h1yO-3SIp) to `ckpts/`.
+### Run examples
+Running requires around 28 GB of VRAM on an NVIDIA Tesla V100 GPU.
 ```
-wget -P ckpts/ https://zero123.cs.columbia.edu/assets/zero123-xl.ckpt
-```
-Optional: To use the elevation feature, please download `indoor_ds_new.ckpt` from [LoFTR weights](https://drive.google.com/drive/folders/1xu2Pq6mZT5hmFgiYMBT9Zt8h1yO-3SIp) and put it under `ckpts/`.
-### Run demo
-Requires around 28 GB of VRAM on an NVIDIA Tesla V100 GPU.
-```
-python test_pose_estimation.py --input_json ./inputs/omni3d.json --exp_name omni3d --ckpt_path ckpts/105000.ckpt
+python test_pose_estimation.py --input_json ./inputs/omni3d.json --exp_name omni3d
 ```
 The results will be stored under `outputs/` with the name specified by ```--exp_name```.
-
-Optional: To use the elevation feature, run the script with ```--est_elev```.
 
 ### Visualization
 ```
@@ -66,12 +58,49 @@ Run the evaluation script as:
 python metric.py <outputs/exp_name/> <data/dataset_name/>
 ```
 
+## Use your own data
+Step 1: Create a folder with subfolders `images_raw/` and `masks/`. For example:
+```
+mkdir -p data/demo/lion/
+mkdir -p data/demo/lion/images_raw/
+mkdir -p data/demo/lion/masks/
+```
+Step 2: Put the images under `images_raw/`. The image files should be named with numbers. For example:
+```
+lion
+├── images_raw
+    ├── 000.jpg
+    ├── 001.jpg
+```
+
+Step 3: Put the masks of the images under `masks/`. The mask files should be assigned the same numerical names as their associated images. And a mask should have the same size as its associated image. For example:
+```
+lion
+├── images_raw
+    ├── 000.png
+    ├── 001.png
+```
+
+Step 4: Run the script `crop_obj.py` to crop the images:
+```
+python scripts/crop_obj.py --root data/demo/lion/
+```
+The results will be stored under `images/`.
+
+Step 5: Create a JSON file containing testing samples, with each one includes an anchor view and a number of target views. The structure of the file can be referred from the example [demo.json](inputs/demo.json).
+
+Step 6: Run estimation:
+```
+python test_pose_estimation.py --input_json ./inputs/demo.json --exp_name demo
+```
+The results will be stored under `outputs/demo/`.
+
 ## Examples
 
 <img src="docs/examples.png" width="100%"/>
 The images outlined in <span style="color:red">red</span> are anchor views for which the camera poses have been manually found.
 
-👉 Open <a href="https://xt4d.github.io/id-pose-web/#viewer" target="_blank">Interactive Viewer</a> to check more examples.
+👉 Open <a href="https://xt4d.github.io/id-pose-web/viewer.html" target="_blank">Interactive Viewer</a> to check more examples.
 
 ## Work in progress
 - 3D reconstruction with posed images.

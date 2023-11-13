@@ -43,7 +43,7 @@ for name in name_list[:]:
 
         jdata = json.load(fin)
 
-        ci = jdata['anchor_vid']
+        anchor_vid = jdata['anchor_vid']
 
         obs_cnt = len(jdata['obs'])
         akey = obs_cnt
@@ -54,23 +54,27 @@ for name in name_list[:]:
         if akey not in position_error_dict:
             position_error_dict[akey] = []
 
-        cond_c2w = np.load(os.path.join(ref_path, obj_id, 'poses', f'{ci:03d}.npy'))
-        radius = np.linalg.norm(cond_c2w[:3, -1])
+        anchor_c2w = np.load(os.path.join(ref_path, obj_id, 'poses', f'{anchor_vid:03d}.npy'))
+        radius = np.linalg.norm(anchor_c2w[:3, -1])
 
         for ti in jdata['obs']:
 
             ti = int(ti)
-            if ti == ci:
+            if ti == anchor_vid:
                 continue
 
             pred_rel_sph = np.array(jdata['obs'][str(ti)]['rel_sph'])
 
+            # Scaling relative radius from the zero123 scale to the actual scale.
+            # The scale range of zero123 is (1.5, 2.2), we use the average value 1.85 as the zero123 scale.
+            pred_rel_sph[2] = pred_rel_sph[2] * radius / 1.85
+
             target_c2w = np.load(os.path.join(ref_path, obj_id, 'poses', f'{ti:03d}.npy'))
 
-            gt_rel_sph = relative_spherical(target_c2w[:3, -1], cond_c2w[:3, -1])
+            gt_rel_sph = relative_spherical(target_c2w[:3, -1], anchor_c2w[:3, -1])
             gt_xyz = target_c2w[:3, -1]
 
-            base_sph = cartesian_to_spherical(cond_c2w[:3, -1])
+            base_sph = cartesian_to_spherical(anchor_c2w[:3, -1])
             pred_xyz = spherical_to_cartesian(pred_rel_sph + base_sph)
 
             pred_c2w = elu_to_c2w(pred_xyz, np.zeros(3), np.array([0., 0., 1.]))
@@ -84,7 +88,6 @@ for name in name_list[:]:
             # v2 = pred_xyz / np.linalg.norm(pred_xyz)
             # angle = np.arccos(np.dot(v1, v2)) * 180 / np.pi 
 
-            cond_rot = np.linalg.inv(cond_c2w[:3, :3])
             target_rot = np.linalg.inv(target_c2w[:3, :3])
             pred_rot = pred_w2c[:3, :3]
 
