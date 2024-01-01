@@ -1,4 +1,7 @@
 <html>
+<script>
+	window.location.replace("https://xt4d.github.io/id-pose-web/");
+</script>
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, user-scalable=yes, minimum-scale=1.0, maximum-scale=1.0">
@@ -88,16 +91,7 @@
 			<div class="is-centered has-text-centered">
 				<h2 class="title is-3">Abstract</h2>
 				<h2 class="content has-text-justified">
-					Given sparse views of an object, estimating their camera poses is a long-standing and intractable
-					problem. We harness the pre-trained diffusion model of novel views conditioned on viewpoints
-					(Zero-1-to-3). We present ID-Pose which inverses the denoising diffusion process to estimate the
-					relative pose given two input images. ID-Pose adds a noise on one image, and predicts the noise
-					conditioned on the other image and a decision variable for the pose. The prediction error is used as
-					the objective to find the optimal pose with the gradient descent method. ID-Pose can handle more
-					than two images and estimate each of the poses with multiple image pairs from triangular
-					relationships. ID-Pose requires no training and generalizes to real-world images. We conduct
-					experiments using high-quality real-scanned 3D objects, where ID-Pose significantly outperforms
-					state-of-the-art methods.
+					Given sparse views of a 3D object, estimating their camera poses is a long-standing and intractable problem. Toward this goal, we consider harnessing the pre-trained diffusion model of novel views conditioned on viewpoints (Zero-1-to-3). We present ID-Pose which inverses the denoising diffusion process to estimate the relative pose given two input images. ID-Pose adds a noise to one image, and predicts the noise conditioned on the other image and a hypothesis of the relative pose. The prediction error is used as the minimization objective to find the optimal pose with the gradient descent method. We extend ID-Pose to handle more than two images and estimate each pose with multiple image pairs from triangular relations. ID-Pose requires no training and generalizes to open-world images. We conduct extensive experiments using casually captured photos and rendered images with random viewpoints. The results demonstrate that ID-Pose significantly outperforms state-of-the-art methods.
 				</h2>
 				<img src="https://xt4d.github.io/id-pose-web/res/teaser.png" width="100%" />
 			</div>
