@@ -10,12 +10,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 import os
 import numpy as np
-import matplotlib.pyplot as plt
 from PIL import Image
 import torch
-import time
 import cv2
-from carvekit.api.high import HiInterface
 import PIL
 
 def pil_rectangle_crop(im):
@@ -42,22 +39,6 @@ def add_margin(pil_img, color, size=256):
     result = Image.new(pil_img.mode, (size, size), color)
     result.paste(pil_img, ((size - width) // 2, (size - height) // 2))
     return result
-
-
-def create_carvekit_interface():
-    # Check doc strings for more information
-    interface = HiInterface(object_type="object",  # Can be "object" or "hairs-like".
-                            batch_size_seg=5,
-                            batch_size_matting=1,
-                            device='cuda' if torch.cuda.is_available() else 'cpu',
-                            seg_mask_size=640,  # Use 640 for Tracer B7 and 320 for U2Net
-                            matting_mask_size=2048,
-                            trimap_prob_threshold=231,
-                            trimap_dilation=30,
-                            trimap_erosion_iters=5,
-                            fp16=False)
-
-    return interface
 
 
 def load_and_preprocess(interface, input_im):

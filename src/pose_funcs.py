@@ -73,7 +73,6 @@ def probe_pose(model, cond_image, target_image, ts_range, probe_bsz, theta_range
                 '''convert numpy.float to float'''
                 cands.append((loss, [float(theta), float(azimuth), float(radius)]))
 
-    cands = sorted(cands)
     return cands
 
 
@@ -109,7 +108,7 @@ def create_pose_params(pose, device):
     return [theta, azimuth, radius]
 
 
-def find_optimal_poses(model, images, learning_rate, n_iter=1000, init_poses={}, ts_range=[0.02, 0.92], combinations=None, print_n=50, avg_last_n=1):
+def find_optimal_poses(model, images, learning_rate, bsz=1, n_iter=1000, init_poses={}, ts_range=[0.02, 0.92], combinations=None, print_n=50, avg_last_n=1):
     
     layer = PoseT()
 
@@ -164,7 +163,10 @@ def find_optimal_poses(model, images, learning_rate, n_iter=1000, init_poses={},
         targets = []
         rts = []
 
-        choices = [ iter % len(combinations) ] #np.random.choice(len(combinations), size=1, replace=False)
+        choices = [ iter % len(combinations) ] 
+        
+        if bsz > 1:
+            choices = np.random.choice(len(combinations), size=bsz, replace=True)
 
         for cho in choices:
 
@@ -217,4 +219,3 @@ def find_optimal_poses(model, images, learning_rate, n_iter=1000, init_poses={},
         result_loss = None
 
     return result_poses, [ init_poses[i] for i in range(1, num) ], result_loss
-

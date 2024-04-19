@@ -1,7 +1,8 @@
 import os, sys
 import numpy as np
 import math
-
+import rembg
+import cv2
 
 def spherical_to_cartesian(sph):
 
@@ -85,20 +86,19 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
         'obs': {}
     }
 
-    jdata['obs'][anchor_vid] = {
-        'img_path': f'{anchor_vid:03d}.png'
-    }
+    jdata['obs'][anchor_vid] = {}
 
     for key in aux_data:
         jdata['obs'][anchor_vid][key] = aux_data[key][0]
 
     anchor_sph = None
+
     anchor_rt = None
 
-    if os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.npy')):
-        anchor_rt = np.load(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.npy'))
-    elif os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.txt')):
-        anchor_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{anchor_vid:03d}.txt'))
+    if os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid}.npy')):
+        anchor_rt = np.load(os.path.join(obj_root, 'poses', f'{anchor_vid}.npy'))
+    elif os.path.exists(os.path.join(obj_root, 'poses', f'{anchor_vid}.txt')):
+        anchor_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{anchor_vid}.txt'))
 
     if anchor_rt is not None:
 
@@ -121,7 +121,6 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
         rel_sph = np.array(pred_sphs[i])
 
         opack = {
-            'img_path': f'{target_vid:03d}.png',
             'rel_sph': rel_sph.tolist()
         }
 
@@ -143,10 +142,10 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
 
             target_rt = None
 
-            if os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid:03d}.npy')):
-                target_rt = np.load(os.path.join(obj_root, 'poses', f'{target_vid:03d}.npy'))
-            elif os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid:03d}.txt')):
-                target_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{target_vid:03d}.txt'))
+            if os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid}.npy')):
+                target_rt = np.load(os.path.join(obj_root, 'poses', f'{target_vid}.npy'))
+            elif os.path.exists(os.path.join(obj_root, 'poses', f'{target_vid}.txt')):
+                target_rt = np.loadtxt(os.path.join(obj_root, 'poses', f'{target_vid}.txt'))
 
             if target_rt is not None:
 
@@ -164,3 +163,73 @@ def build_output(anchor_vid, target_vids, pred_sphs, aux_data, obj_root, export_
         jdata['obs'][target_vid] = opack
 
     return jdata
+
+
+def remove_background(image, rembg_session = None, force = False, **rembg_kwargs):
+    do_remove = True
+    if image.mode == "RGBA" and image.getextrema()[3][0] < 255:
+        do_remove = False
+    do_remove = do_remove or force
+    if do_remove:
+        image = rembg.remove(image, session=rembg_session, **rembg_kwargs)
+    return image
+
+
+def group_cropping(images, width, height, ratio=1.5, mask_thres=127, bkg_color=[255, 255, 255, 255]):
+
+    ws = []
+    hs = []
+
+    images = [ np.asarray(img) for img in images ]
+
+    for img in images:
+
+        alpha = img[:, :, 3]
+
+        yy, xx = np.where(alpha > mask_thres)
+        y0, y1 = yy.min(), yy.max()
+        x0, x1 = xx.min(), xx.max()
+
+        ws.append(x1 - x0)
+        hs.append(y1 - y0)
+
+    sz_w = np.max(ws)
+    sz_h = np.max(hs)
+
+    sz = int( max(ratio*sz_w, ratio*sz_h) )
+
+    out_rgbs = []
+
+    for rgba in images:
+
+        rgb = rgba[:, :, :3]
+        alpha = rgba[:, :, 3]
+
+        yy, xx = np.where(alpha > mask_thres)
+        y0, y1 = yy.min(), yy.max()
+        x0, x1 = xx.min(), xx.max()
+
+        height, width, chn = rgb.shape
+
+        cy = (y0 + y1) // 2
+        cx = (x0 + x1) // 2
+  
+        y0 = cy - int(np.floor(sz / 2))
+        y1 = cy + int(np.ceil(sz / 2))
+        x0 = cx - int(np.floor(sz / 2))
+        x1 = cx + int(np.ceil(sz / 2))
+        out = rgba[ max(y0, 0) : min(y1, height) , max(x0, 0) : min(x1, width), : ].copy()
+        pads = [(max(0-y0, 0), max(y1-height, 0)), (max(0-x0, 0), max(x1-width, 0)), (0, 0)]
+        out = np.pad(out, pads, mode='constant', constant_values=0)
+
+        assert(out.shape[:2] == (sz, sz))
+
+        out[:, :, :3] = out[:, :, :3] * (out[..., 3:]/255.) + np.array(bkg_color)[None, None, :3] * (1-out[..., 3:]/255.)
+        out[:, :, -1] = bkg_color[-1]
+
+        out = cv2.resize(out.astype(np.uint8), (256, 256))
+        out = out[:, :, :3]
+
+        out_rgbs.append(out)
+
+    return out_rgbs

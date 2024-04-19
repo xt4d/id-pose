@@ -11,7 +11,7 @@ from .oee.utils.elev_est_api import elev_est_api, ElevEstHelper
 from .sampling import sample_images
 
 
-def load_image(img_path, width, height, mask_path=None, device='cpu', preprocessor=None, threshold=0.9):
+def load_image(img_path, mask_path=None, preprocessor=None, threshold=0.9):
 
     img = Image.open(img_path)
 
@@ -25,15 +25,11 @@ def load_image(img_path, width, height, mask_path=None, device='cpu', preprocess
         elif img.mode == 'RGB':
             if mask_path is not None:
                 mask = Image.open(mask_path)
-                bkg = Image.new('RGB', (width, height), color=(255, 255, 255))
+                bkg = Image.new('RGB', (img.width, img.height), color=(255, 255, 255))
                 img = Image.composite(img, bkg, mask)
             img = np.asarray(img, dtype=np.float32) / 255.
         else:
             print('Wrong format:', img_path)
-
-    img = transforms.ToTensor()(img).unsqueeze(0).to(device)
-    img = img * 2 - 1
-    img = transforms.functional.resize(img, [height, width])
 
     return img
 
@@ -59,35 +55,14 @@ def load_model_from_config(config, ckpt, device, verbose=False):
     return model
 
 
-def estimate_poses(
-        model, images, learning_rate, 
-        init_type='pairwise', 
-        optm_type='pairwise', 
-        probe_ts_range=[0.02, 0.98], ts_range=[0.02, 0.98], 
-        probe_bsz=16, 
-        adjust_iters=10, optm_iters=600, 
-        noise=None,
-        est_elev=False,
-        matcher_ckpt_path=None
-    ):
+def estimate_elevs(model, images, est_type=None, matcher_ckpt_path=None):
 
     num = len(images)
-
-    if num <= 2:
-        init_type = 'pairwise'
-
-    cands = {}
-    losses = {}
 
     elevs = {i: None for i in range(num)}
     elev_ranges = {i: None for i in range(num)}
 
-    init_poses = {i: None for i in range(num)}
-    pairwise_init_poses = {i: None for i in range(num)}
-
-    print('Initialization: Probe', datetime.now())
-
-    if est_elev:
+    if est_type == 'all':
         matcher = ElevEstHelper.get_feature_matcher(matcher_ckpt_path, model.device)
         for i in range(num):
             simgs = sample_surrounding_images(model, images[i])
@@ -107,15 +82,66 @@ def estimate_poses(
             elif elevs[0] is not None:
                 elev_ranges[i] = make_elev_probe_range(elevs[0])
 
+    elif est_type == 'simple':
+        matcher = ElevEstHelper.get_feature_matcher(matcher_ckpt_path, model.device)
+        simgs = sample_surrounding_images(model, images[0])
+        elev = elev_est_api(matcher, simgs, min_elev=20, max_elev=160)
+        elevs[0] = np.deg2rad(elev) if elev is not None else None
+        ae = elevs[0] if elevs[0] is not None else np.pi/2
+        for i in range(1, num):
+            elev_ranges[i] = np.array([np.pi/2 - ae])
+
+    return elevs, elev_ranges        
+
+
+def estimate_poses(
+        model, images, 
+        seed_cand_num=8, 
+        explore_type='pairwise', 
+        refine_type='pairwise', 
+        probe_ts_range=[0.02, 0.98], ts_range=[0.02, 0.98], 
+        probe_bsz=16, 
+        adjust_factor=10., 
+        adjust_iters=10, 
+        adjust_bsz=1, 
+        refine_factor=1., 
+        refine_iters=600,
+        refine_bsz=1, 
+        noise=None, 
+        elevs=None, 
+        elev_ranges=None
+    ):
+
+    num = len(images)
+
+    if elevs is None:
+        elevs = {i: None for i in range(num)}
+    if elev_ranges is None:
+        elev_ranges = {i: None for i in range(num)}
+
+    if num <= 2:
+        explore_type = 'pairwise'
+
+    cands = {}
+    losses = {}
+
+    ep_poses = {i: None for i in range(num)}
+    pairwise_ep_poses = {i: None for i in range(num)}
+
+    print('Start', datetime.now())
+
     images = [ img.permute(0, 2, 3, 1) for img in images ]
 
     for i in range(1, num):
 
         print('PAIR', 0, i, datetime.now())
 
-        all_cands = probe_pose(model, images[0], images[i], probe_ts_range, probe_bsz, theta_range=elev_ranges[i], noise=noise)
+        azimuth_range = np.arange(start=0.0, stop=np.pi*2, step=np.pi*2 / seed_cand_num)
 
-        print('Adjust candidates', len(all_cands), datetime.now())
+        all_cands = probe_pose(model, images[0], images[i], probe_ts_range, probe_bsz, theta_range=elev_ranges[i], azimuth_range=azimuth_range, noise=noise)
+        all_cands = sorted(all_cands)
+
+        print('Exploration', len(all_cands), datetime.now())
 
         adjusted_cands = all_cands[:5]
         if adjust_iters > 0:
@@ -125,7 +151,9 @@ def estimate_poses(
             
                 out_poses, _, _ = find_optimal_poses(
                     model, [images[0], images[i]], 
-                    learning_rate*10, n_iter=adjust_iters, 
+                    adjust_factor, 
+                    bsz=adjust_bsz,
+                    n_iter=adjust_iters, 
                     init_poses={1: cand[1]}, 
                     ts_range=ts_range,
                     print_n=100,
@@ -141,13 +169,13 @@ def estimate_poses(
             print(cand)
 
         cands[i] = [ cand[:2] for cand in adjusted_cands ]
-        losses[i] = [loss if (init_type == 'pairwise') else 0.0 for loss, _ in cands[i]]
+        losses[i] = [loss if (explore_type == 'pairwise') else 0.0 for loss, _ in cands[i]]
 
-        pairwise_init_poses[i] = min(cands[i])[1]
+        pairwise_ep_poses[i] = min(cands[i])[1]
 
-    print('Initialization: Select', datetime.now())
+    print('Selection', datetime.now())
 
-    if init_type == 'triangular':
+    if explore_type == 'triangular':
 
         for i in range(1, num):
 
@@ -190,15 +218,15 @@ def estimate_poses(
             print(cands[i][u], losses[i][u])
         print(i, 'SELECT', min_rank, losses[i][min_rank])
 
-        init_poses[i] = cands[i][min_rank][1]
+        ep_poses[i] = cands[i][min_rank][1]
 
-    print('Optimization', datetime.now())
+    print('Refinement', datetime.now())
 
     combinations = None
-    if optm_type == 'pairwise':
+    if refine_type == 'pairwise':
         combinations = [ (0, i) for i in range(1, num) ] + [ (i, 0) for i in range(1, num) ]
 
-    elif optm_type == 'triangular':
+    elif refine_type == 'triangular':
         combinations = []
         for i in range(0, num):
             for j in range(i+1, num):
@@ -207,11 +235,13 @@ def estimate_poses(
 
     print('Combinations', len(combinations), combinations)
 
-    '''Optimization'''
+    '''Refinement'''
     out_poses, _, loss = find_optimal_poses(
         model, images, 
-        learning_rate, n_iter=(num-1)*optm_iters, 
-        init_poses=init_poses, 
+        refine_factor, 
+        bsz=refine_bsz,
+        n_iter=(num-1)*refine_iters, 
+        init_poses=ep_poses, 
         ts_range=ts_range,
         combinations=combinations,
         avg_last_n=20,
@@ -221,8 +251,8 @@ def estimate_poses(
     print('Done', datetime.now())
 
     aux_data = {
-        'tri_init_sph': init_poses,
-        'pw_init_sph': pairwise_init_poses,
+        'tri_ep_sph': ep_poses,
+        'pw_ep_sph': pairwise_ep_poses,
         'elev': elevs
     }
 

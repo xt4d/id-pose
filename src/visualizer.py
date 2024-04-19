@@ -68,7 +68,16 @@ class CameraVisualizer:
         self._raw_images = None
         self._bit_images = None
         self._image_colorscale = None
-        
+        self.set_images(images)
+
+        self._mesh = None
+        if mesh_path is not None and os.path.exists(mesh_path):
+            import trimesh
+            self._mesh = trimesh.load(mesh_path, force='mesh')
+
+
+    def set_images(self, images):
+
         if images is not None:
             self._raw_images = images
             self._bit_images = []
@@ -83,11 +92,6 @@ class CameraVisualizer:
                 self._bit_images.append(bit_img)
                 self._image_colorscale.append(colorscale)
 
-        self._mesh = None
-        if mesh_path is not None and os.path.exists(mesh_path):
-            import trimesh
-            self._mesh = trimesh.load(mesh_path, force='mesh')
-
 
     def encode_image(self, raw_image):
         '''
@@ -101,16 +105,16 @@ class CameraVisualizer:
         bit_image = Image.fromarray(raw_image).convert('P', palette='WEB', dither=None)
         # bit_image = Image.fromarray(raw_image.clip(0, 254)).convert(
         #     'P', palette='WEB', dither=None)
-        colorscale = [
-            [i / 255.0, 'rgb({}, {}, {})'.format(*rgb)] for i, rgb in enumerate(idx_to_color)]
+        colorscale = [[i / 255.0, 'rgb({}, {}, {})'.format(*rgb)] for i, rgb in enumerate(idx_to_color)]
         
         return bit_image, colorscale
 
 
     def update_figure(
             self, scene_bounds, 
-            base_radius=0.0, fov_deg=50., 
+            base_radius=0.0, zoom_scale=1.0, fov_deg=50., 
             mesh_z_shift=0.0, mesh_scale=1.0, 
+            font_size=10, 
             show_background=False, show_grid=False, show_ticklabels=False   
         ):
 
@@ -141,6 +145,7 @@ class CameraVisualizer:
             edges = [(0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (2, 3), (3, 4), (4, 1), (0, 5)]
 
             cone = calc_cam_cone_pts_3d(pose, fov_deg)
+            radius = np.linalg.norm(pose[:3, -1])
 
             if self._bit_images and self._bit_images[i]:
 
@@ -185,11 +190,11 @@ class CameraVisualizer:
             if cone[0, 2] < 0:
                 fig.add_trace(go.Scatter3d(
                     x=[cone[0, 0]], y=[cone[0, 1]], z=[cone[0, 2] - 0.05], showlegend=False,
-                    mode='text', text=legend, textposition='bottom center'))
+                    mode='text', text=legend, textfont=dict(color=clr, size=font_size), textposition='bottom center'))
             else:
                 fig.add_trace(go.Scatter3d(
                     x=[cone[0, 0]], y=[cone[0, 1]], z=[cone[0, 2] + 0.05], showlegend=False,
-                    mode='text', text=legend, textposition='top center'))
+                    mode='text', text=legend, textfont=dict(color=clr, size=font_size), textposition='top center'))
 
         # look at the center of scene
         fig.update_layout(

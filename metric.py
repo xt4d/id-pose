@@ -2,6 +2,7 @@ import sys, os, glob
 import numpy as np
 import re
 import json
+import argparse
 
 from src.utils import relative_spherical, spherical_to_cartesian, cartesian_to_spherical, elu_to_c2w
 
@@ -12,10 +13,15 @@ def compute_angular_error(rotation1, rotation2):
     return theta * 180 / np.pi
 
 
-data_path = sys.argv[1]
-ref_path = sys.argv[2]
+parser = argparse.ArgumentParser()
+parser.add_argument('--input', type=str)
+parser.add_argument('--gt', type=str)
+args = parser.parse_args()
 
-name_list = os.listdir(data_path)
+input_root = args.input
+gt_root = args.gt
+
+name_list = os.listdir(input_root)
 
 angles = []
 angle_error_dict = {}
@@ -34,7 +40,7 @@ for name in name_list[:]:
     obj_id = name[:match.span()[0]]
     cat = obj_id.split('_')[0]
 
-    fpath = os.path.join(data_path, name, 'pose.json')
+    fpath = os.path.join(input_root, name, 'pose.json')
 
     if not os.path.exists(fpath):
         continue
@@ -43,7 +49,7 @@ for name in name_list[:]:
 
         jdata = json.load(fin)
 
-        anchor_vid = jdata['anchor_vid']
+        avid = jdata['anchor_vid']
 
         obs_cnt = len(jdata['obs'])
         akey = obs_cnt
@@ -54,22 +60,24 @@ for name in name_list[:]:
         if akey not in position_error_dict:
             position_error_dict[akey] = []
 
-        anchor_c2w = np.load(os.path.join(ref_path, obj_id, 'poses', f'{anchor_vid:03d}.npy'))
+        anchor_c2w = np.load(os.path.join(gt_root, obj_id, 'poses', f'{avid}.npy'))
         radius = np.linalg.norm(anchor_c2w[:3, -1])
 
-        for ti in jdata['obs']:
+        for tvid in jdata['obs']:
 
-            ti = int(ti)
-            if ti == anchor_vid:
+            if tvid == avid:
                 continue
 
-            pred_rel_sph = np.array(jdata['obs'][str(ti)]['rel_sph'])
+            pred_rel_sph = np.array(jdata['obs'][tvid]['rel_sph'])
 
             # Scaling relative radius from the zero123 scale to the actual scale.
             # The scale range of zero123 is (1.5, 2.2), we use the average value 1.85 as the zero123 scale.
             pred_rel_sph[2] = pred_rel_sph[2] * radius / 1.85
 
-            target_c2w = np.load(os.path.join(ref_path, obj_id, 'poses', f'{ti:03d}.npy'))
+            if os.path.exists(os.path.join(gt_root, obj_id, 'poses', f'{tvid}.npy')):
+                target_c2w = np.load(os.path.join(gt_root, obj_id, 'poses', f'{tvid}.npy'))
+            else:
+                target_c2w = np.loadtxt(os.path.join(gt_root, obj_id, 'poses', f'{tvid}.txt'))
 
             gt_rel_sph = relative_spherical(target_c2w[:3, -1], anchor_c2w[:3, -1])
             gt_xyz = target_c2w[:3, -1]
@@ -108,7 +116,7 @@ for thres in [15, 30]:
         print('Angle', thres, np.mean(x_angles), np.min(x_angles), np.max(x_angles), len(x_angles))
         print('RotACC', thres, float(len(x_angles)) / len(angles) * 100, len(x_angles), len(angles))
 
-for akey in [2, 4, 6, 8]:
+for akey in [2, 3, 4, 5, 6, 7, 8]:
 
     if akey not in angle_error_dict:
         continue
